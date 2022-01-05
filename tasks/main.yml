@@ -1,0 +1,77 @@
+- name: Gather variables for each operating system
+  tags: [veeam]
+  include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_distribution | lower }}.yml"
+    - "{{ ansible_os_family | lower }}.yml"
+
+#TODO ssh config
+#KexAlgorithms +diffie-hellman-group1-sha256
+
+- name: Configure Veeam
+  tags: [veeam]
+  block:
+    #
+    # Configure Veeam agent user
+    #
+    - name: Query Veeam agent exists
+      command: "id -u {{ veeam_user }}"
+      register: veeam_user_query
+      changed_when: false
+
+    - name: Assert Veeam agent exists
+      assert:
+        that:
+          - "veeam_user_query is succeeded"
+
+    - name: Set Veeam agent shell
+      user:
+        name: "{{ veeam_user }}"
+        shell: "/bin/bash"
+
+    - name: Create Veeam agent public key directory
+      ansible.builtin.file:
+        path: "/home/{{ veeam_user }}/.ssh"
+        state: directory
+        mode: "0700"
+        owner: "{{ veeam_user }}"
+
+    - name: Install veeam agent public key
+      ansible.posix.authorized_key:
+        comment: "{{ veeam_user }} installed by Ansible"
+        exclusive: true
+        key: "{{ lookup('file', veeam_user_keypath) }}"
+        state: present
+        user: "{{ veeam_user }}"
+
+    #
+    # Install Veeam prerequisites
+    #
+    - name: Install Veeam basic prereqs
+      package:
+        name: "{{ veeam_basic_prereqs }}"
+        state: present
+
+    - name: Gather the package facts
+      package_facts:
+        manager: auto
+
+    - name: Install Veeam MySQL prereqs
+      package:
+        name: "{{ mysqlclient_package }}"
+        state: present
+      when: "'mysql-server' in ansible_facts.packages"
+
+    - name: Install Veeam PostgreSQL prereqs
+      package:
+        name: "libpq5"
+        state: present
+      when: "'postgresql' in ansible_facts.packages"
+
+    #
+    # Veeam configuration
+    #
+    # TODO increase boot parition image size if needed
+    #  community.general.parted
+    #  biosbootpartitionlimit=100

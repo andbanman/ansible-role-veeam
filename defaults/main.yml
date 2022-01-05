@@ -1,0 +1,46 @@
+---
+veeam_config_file: "/etc/veeam/veeam.ini"
+
+veeam_basic_prereqs:
+  - "dkms"
+  - "gcc"
+  - "make"
+  - "perl"
+  - "linux-headers-generic" #TODO query the kernel type
+  - "libudev1"
+  - "libacl1"
+  - "libattr1"
+  - "lvm2"
+  - "libfuse2"
+  - "libncurses5"
+  - "dmidecode"
+  - "efibootmgr" #TODO query the boot method
+  - "python3-dns"
+
+virtual_system_manufacturers:
+  - "Microsoft Corporation"
+  - "QEMU"
+  - "innotek GmbH"
+
+# https://helpcenter.veeam.com/docs/agentforlinux/userguide/used_ports.html?ver=50
+veeam_ufw_rules:
+  - rule: allow
+    port: '10006'
+    proto: tcp
+    # TODO returns more than one IP
+    from: "{{ lookup('dig', veeam_backup_server, wantlist=True) }}"
+    to: any
+
+  - rule: allow
+    port: '2500:3000'
+    proto: tcp
+    # TODO returns more than one IP
+    from: "{{ lookup('dig', veeam_backup_server, wantlist=True) }}"
+    to: any
+
+  # Cloud gateway rules
+  #- rule: allow
+  #  port: '6180'
+  #  proto: tcp
+  #  from: "{{ veeam_backup_server }}"
+  #  to: any
